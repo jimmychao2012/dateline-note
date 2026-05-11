@@ -1,0 +1,9 @@
+# Python快取
+__pycache__/
+*.pyc
+
+# SQLite資料庫（本地資料）
+data.db
+
+# 環境設定（之後會用）
+.env

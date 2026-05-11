@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>有效期限系統</title>
+</head>
+<body>
+
+<h1>📦 有效期限管理系統</h1>
+
+<!-- 掃描入口 -->
+<button onclick="goScan()">📷 掃描條碼</button>
+
+<hr>
+
+
+<!-- 新增 -->
+<h3>新增物品</h3>
+<input id="name" placeholder="名稱">
+<input id="date" type="date">
+<button onclick="addItem()">新增</button>
+
+<hr>
+
+
+<!-- 一般清單 -->
+<h3>清單</h3>
+<select id="sortMode" onchange="loadItems()">
+    <option value="added">加入順序</option>
+    <option value="expire">到期日順序</option>
+</select>
+<ul id="list"></ul>
+
+<hr>
+
+<!-- 過期區 -->
+<h3>⚠️ 過期區</h3>
+<div id="expired-list"></div>
+<button onclick="deleteCheckedExpired()">確認丟掉選取項目</button>
+
+<script>
+// 跳轉掃描頁
+function goScan() {
+    window.location.href = "/scanner";
+}
+
+// 頁面載入時執行
+window.onload = function() {
+    loadItems();
+
+    const name = localStorage.getItem("scanned_name");
+    if (name) {
+        document.getElementById("name").value = name;
+        localStorage.removeItem("scanned_name");
+    }
+};
+
+// 載入資料
+async function loadItems() {
+    const res = await fetch('/items');
+    const data = await res.json();
+
+    const sortMode = document.getElementById("sortMode").value;
+
+    data.sort((a, b) => {
+        if (sortMode === "added") {
+            return b.id - a.id;   // 後加入的在上面
+        } else if (sortMode === "expire") {
+            return new Date(a.expire_date) - new Date(b.expire_date); // 越快到期越上面
+        }
+        return 0;
+    });
+
+    const list = document.getElementById("list");
+    const expiredList = document.getElementById("expired-list");
+
+    list.innerHTML = "";
+    expiredList.innerHTML = "";
+
+    data.forEach(item => {
+        if (item.days_left < 0) {
+            const div = document.createElement("div");
+            div.innerHTML = `
+                <label style="color:red;">
+                    <input type="checkbox" class="expired-check" value="${item.id}">
+                    ${item.name} - ${item.expire_date} (已過期 ${Math.abs(item.days_left)} 天)
+                </label>
+            `;
+            expiredList.appendChild(div);
+        } else {
+            let color = "";
+            if (item.days_left <= 3) {
+                color = "red";
+            } else if (item.days_left <= 7) {
+                color = "orange";
+            } else {
+                color = "green";
+            }
+
+            const li = document.createElement("li");
+            li.innerHTML = `
+                <span style="color:${color}">
+                    ${item.name} - ${item.expire_date} (剩 ${item.days_left} 天)
+                </span>
+                <button onclick="deleteItem(${item.id})">刪除</button>
+            `;
+            list.appendChild(li);
+        }
+    });
+}
+
+// 新增
+async function addItem() {
+    const name = document.getElementById("name").value;
+    const date = document.getElementById("date").value;
+
+    await fetch('/items', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name, expire_date: date})
+    });
+
+    document.getElementById("name").value = "";
+    document.getElementById("date").value = "";
+    loadItems();
+}
+
+// 刪除單筆
+async function deleteItem(id) {
+    await fetch('/items/' + id, {
+        method: 'DELETE'
+    });
+
+    loadItems();
+}
+
+// 刪除勾選的過期品
+async function deleteCheckedExpired() {
+    const checks = document.querySelectorAll(".expired-check:checked");
+
+    for (const check of checks) {
+        await fetch('/items/' + check.value, {
+            method: 'DELETE'
+        });
+    }
+
+    loadItems();
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>掃描條碼</title>
+
+    <script src="https://unpkg.com/quagga/dist/quagga.min.js"></script>
+</head>
+<body>
+
+<h1>📷 掃描條碼</h1>
+
+<button onclick="goHome()">⬅ 回首頁</button>
+
+<hr>
+
+<h3>📡 即時掃描</h3>
+<div id="scanner" style="width:300px;"></div>
+
+<hr>
+
+<h3>📸 上傳圖片辨識</h3>
+<input type="file" accept="image/*" onchange="uploadImage(event)">
+
+<hr>
+
+<h3>掃描結果</h3>
+
+<p>條碼：<span id="result"></span></p>
+
+<p>
+    商品名稱：
+    <input id="productName" placeholder="查不到可手動輸入">
+</p>
+
+<p>
+    有效期限：
+    <input id="expireDate" type="date">
+</p>
+
+<button onclick="saveProduct()">帶回首頁</button>
+
+<script>
+let currentBarcode = "";
+
+// 回首頁
+function goHome() {
+    window.location.href = "/";
+}
+
+// 🔍 查商品
+async function fetchProduct(barcode) {
+
+    currentBarcode = barcode;
+
+    console.log("掃到條碼:", barcode);
+
+    document.getElementById("result").innerText = barcode;
+
+    try {
+        // 🔥 回存 barcode_products
+        if (currentBarcode) {
+
+            await fetch('/save_barcode', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    barcode: currentBarcode,
+                    name: name
+                })
+            });
+
+            console.log("已回存條碼");
+        }
+        const res = await fetch(`/product/${barcode}`);
+        const data = await res.json();
+
+        console.log("後端回傳:", data);
+
+        if (data.success) {
+            document.getElementById("productName").value = data.name;
+        } else {
+            alert("查不到商品，請手動輸入");
+        }
+
+    } catch (err) {
+        console.error("API錯誤:", err);
+        alert("查詢失敗（後端或JSON錯）");
+    }
+}
+
+// 📡 即時掃描
+function startScanner() {
+
+    Quagga.init({
+        inputStream: {
+            type: "LiveStream",
+            target: document.querySelector('#scanner'),
+            constraints: {
+                facingMode: "environment"
+            }
+        },
+        decoder: {
+            readers: ["ean_reader"]
+        }
+
+    }, function(err) {
+
+        if (err) {
+            console.error(err);
+            return;
+        }
+
+        Quagga.start();
+    });
+
+    let scanning = true;
+
+    Quagga.onDetected(function(data) {
+
+        if (!scanning) return;
+        scanning = false;
+
+        const code = data.codeResult.code;
+
+        Quagga.stop();
+
+        fetchProduct(code);
+    });
+}
+
+// 📸 圖片辨識
+function uploadImage(event) {
+
+    const file = event.target.files[0];
+
+    Quagga.decodeSingle({
+        src: URL.createObjectURL(file),
+        numOfWorkers: 0,
+
+        decoder: {
+            readers: ["ean_reader"]
+        }
+
+    }, function(result) {
+
+        if (result && result.codeResult) {
+
+            const code = result.codeResult.code;
+
+            fetchProduct(code);
+
+        } else {
+
+            alert("辨識不到條碼");
+        }
+    });
+}
+
+// 💾 帶回首頁
+async function saveProduct() {
+
+    const name = document.getElementById("productName").value;
+    const expire = document.getElementById("expireDate").value;
+
+    if (!name) {
+        alert("沒有商品名稱");
+        return;
+    }
+
+    if (!expire) {
+        alert("請輸入有效期限");
+        return;
+    }
+
+    try {
+
+        // =========================
+        // ① 回存 barcode_products
+        // =========================
+        if (currentBarcode) {
+
+            const barcodeRes = await fetch('/save_barcode', {
+
+                method: 'POST',
+
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+
+                body: JSON.stringify({
+                    barcode: currentBarcode,
+                    name: name
+                })
+            });
+
+            const barcodeData = await barcodeRes.json();
+
+            console.log("條碼回存:", barcodeData);
+        }
+
+        // =========================
+        // ② 新增 items
+        // =========================
+        const res = await fetch('/items', {
+
+            method: 'POST',
+
+            headers: {
+                'Content-Type': 'application/json'
+            },
+
+            body: JSON.stringify({
+                name: name,
+                expire_date: expire
+            })
+        });
+
+        const data = await res.json();
+
+        console.log("新增結果:", data);
+
+        if (!res.ok) {
+            alert("新增失敗");
+            return;
+        }
+
+        // =========================
+        // ③ 回首頁
+        // =========================
+        window.location.href = "/";
+
+    } catch (err) {
+
+        console.error(err);
+
+        alert("儲存失敗");
+    }
+}
+
+// 啟動
+startScanner();
+
+</script>
+
+</body>
+</html>
