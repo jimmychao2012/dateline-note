@@ -15,7 +15,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB = os.path.join(BASE_DIR, "data.db")
 
 def init_db():
-    conn = sqlite3.connect(DB)
+    conn = get_conn()
     c = conn.cursor()
 
     # 商品清單
@@ -48,7 +48,7 @@ def home():
 # 🔹 取得資料
 @app.route("/items", methods=["GET"])
 def get_items():
-    conn = sqlite3.connect(DB)
+    conn = get_conn()
     c = conn.cursor()
     c.execute("""
         SELECT id, name, expire_date, last_notified
@@ -78,10 +78,10 @@ def get_items():
 def add_item():
     data = request.json
     print("收到資料:", data)
-    conn = sqlite3.connect(DB)
+    conn = get_conn()
     c = conn.cursor()
     c.execute(
-    "INSERT INTO items (name, expire_date, last_notified) VALUES (?, ?, ?)",
+    "INSERT INTO items (name, expire_date, last_notified) VALUES (%s, %s, %s)",
         (data["name"], data["expire_date"], None)
     )
     conn.commit()
@@ -91,9 +91,9 @@ def add_item():
 # 🔹 刪除
 @app.route("/items/<int:item_id>", methods=["DELETE"])
 def delete_item(item_id):
-    conn = sqlite3.connect(DB)
+    conn = get_conn()
     c = conn.cursor()
-    c.execute("DELETE FROM items WHERE id=?", (item_id,))
+    c.execute("DELETE FROM items WHERE id=%s", (item_id,))
     conn.commit()
     conn.close()
     return jsonify({"message": "刪除成功"})
@@ -105,12 +105,12 @@ def scanner():
 @app.route("/product/<barcode>")
 def get_product(barcode):
 
-    conn = sqlite3.connect(DB)
+    conn = get_conn()
     c = conn.cursor()
 
     # 🔍 查本地快取
     c.execute(
-        "SELECT product_name FROM barcode_products WHERE barcode=?",
+        "SELECT product_name FROM barcode_products WHERE barcode=%s",
         (barcode,)
     )
 
@@ -180,13 +180,13 @@ def save_barcode():
             "message": "缺少資料"
         }), 400
 
-    conn = sqlite3.connect(DB)
+    conn = get_conn()
     c = conn.cursor()
 
     c.execute("""
         INSERT OR REPLACE INTO barcode_products
         (barcode, product_name)
-        VALUES (?, ?)
+        VALUES (%s, %s)
     """, (barcode, name))
 
     conn.commit()
@@ -211,7 +211,7 @@ def send_discord(msg):
     except Exception as e:
         print("錯誤:", e)
 def check_expiry():
-    conn = sqlite3.connect(DB)
+    conn = get_conn()
     c = conn.cursor()
 
     c.execute("SELECT id, name, expire_date, last_notified FROM items")
@@ -237,7 +237,7 @@ def check_expiry():
 
             # 👉 記錄今天已提醒
             c.execute(
-                "UPDATE items SET last_notified = ? WHERE id = ?",
+                "UPDATE items SET last_notified = %s WHERE id = %s",
                 (today.strftime("%Y-%m-%d"), item_id)
             )
     send_discord("_____________________________________________"
