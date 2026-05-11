@@ -5,9 +5,12 @@ import requests
 import schedule
 import time
 import threading
+import psycopg2
 import os
 
 app = Flask(__name__)
+def get_conn():
+    return psycopg2.connect(os.environ["DATABASE_URL"])
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB = os.path.join(BASE_DIR, "data.db")
 
