@@ -184,7 +184,7 @@ def save_barcode():
     c = conn.cursor()
 
     c.execute("""
-        INSERT OR REPLACE INTO barcode_products
+        ON CONFLICT INTO barcode_products
         (barcode, product_name)
         VALUES (%s, %s)
     """, (barcode, name))
