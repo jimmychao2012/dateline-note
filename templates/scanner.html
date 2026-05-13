@@ -159,10 +159,14 @@ function uploadImage(event) {
 
 // 💾 帶回首頁
 async function saveProduct() {
+    console.log("name:", document.getElementById("productName"));
+    console.log("expire:", document.getElementById("expireDate"));  
 
     const name = document.getElementById("productName").value;
     const expire = document.getElementById("expireDate").value;
 
+    console.log("name value:", name);
+    console.log("expire value:", expire);
     if (!name) {
         alert("沒有商品名稱");
         return;
