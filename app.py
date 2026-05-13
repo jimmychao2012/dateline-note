@@ -21,7 +21,7 @@ def init_db():
     # 商品清單
     c.execute("""
         CREATE TABLE IF NOT EXISTS items (
-            id INTEGER PRIMARY KEY,
+            id SERIAL PRIMARY KEY,,
             name TEXT,
             expire_date TEXT,
             last_notified TEXT
